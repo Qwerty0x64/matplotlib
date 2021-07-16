@@ -4,13 +4,6 @@
 Writing documentation
 =====================
 
-.. contents:: Contents
-   :depth: 3
-   :local:
-   :backlinks: top
-   :class: multicol-toc
-
-
 Getting started
 ===============
 
@@ -110,16 +103,33 @@ On Windows, either use the format shown above or set options as environment vari
    set O=-W --keep-going -j4
    make html
 
+Showing locally built docs
+--------------------------
+
+The built docs are available in the folder :file:`build/html`. A shortcut
+for opening them in your default browser is:
+
+.. code-block:: sh
+
+   make show
+
 .. _writing-rest-pages:
 
 Writing ReST pages
 ==================
 
-Most documentation is either in the docstring of individual
+Most documentation is either in the docstrings of individual
 classes and methods, in explicit ``.rst`` files, or in examples and tutorials.
-All of these use the ReST_ syntax. Users should look at the ReST_ documentation
-for a full description. But some specific hints and conventions Matplotlib
-uses are useful for creating documentation.
+All of these use the ReST_ syntax and are processed by Sphinx_.
+
+The `Sphinx reStructuredText Primer
+<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>`_ is
+a good introduction into using ReST. More complete information is available in
+the `reStructuredText reference documentation
+<https://docutils.sourceforge.io/rst.html#reference-documentation>`_.
+
+This section contains additional information and conventions how ReST is used
+in the Matplotlib documentation.
 
 Formatting and style conventions
 --------------------------------
@@ -290,12 +300,12 @@ Including figures and files
 ---------------------------
 
 Image files can directly included in pages with the ``image::`` directive.
-e.g., :file:`thirdpartypackages/index.rst` displays the images for the third-party
-packages as static images::
+e.g., :file:`tutorials/intermediate/constrainedlayout_guide.py` displays
+a couple of static images::
 
-    .. image:: /_static/toolbar.png
+  # .. image:: /_static/constrained_layout_1b.png
+  #    :align: center
 
-as rendered on the page: :ref:`thirdparty-index`.
 
 Files can be included verbatim.  For instance the ``LICENSE`` file is included
 at :ref:`license-agreement` using ::
@@ -658,26 +668,14 @@ are:
 2. as automated as possible so that as properties change, the docs
    are updated automatically.
 
-The function `matplotlib.artist.kwdoc` and the decorator
-``matplotlib.docstring.dedent_interpd`` facilitate this.  They combine Python
-string interpolation in the docstring with the Matplotlib artist introspection
-facility that underlies ``setp`` and ``getp``.  The ``kwdoc`` function gives
-the list of properties as a docstring. In order to use this in another
-docstring, first update the ``matplotlib.docstring.interpd`` object, as seen in
-this example from `matplotlib.lines`:
-
-.. code-block:: python
-
-  # in lines.py
-  docstring.interpd.update(Line2D_kwdoc=artist.kwdoc(Line2D))
-
-Then in any function accepting `~.Line2D` pass-through ``kwargs``, e.g.,
-`matplotlib.axes.Axes.plot`:
+The ``@docstring.interpd`` decorator implements this.  Any function accepting
+`.Line2D` pass-through ``kwargs``, e.g., `matplotlib.axes.Axes.plot`, can list
+a summary of the `.Line2D` properties, as follows:
 
 .. code-block:: python
 
   # in axes.py
-  @docstring.dedent_interpd
+  @docstring.interpd
   def plot(self, *args, **kwargs):
       """
       Some stuff omitted
@@ -702,17 +700,19 @@ Then in any function accepting `~.Line2D` pass-through ``kwargs``, e.g.,
 
           Here is a list of available `.Line2D` properties:
 
-          %(Line2D_kwdoc)s
-
+          %(Line2D:kwdoc)s
       """
 
-Note there is a problem for `~matplotlib.artist.Artist` ``__init__`` methods,
-e.g., `matplotlib.patches.Patch.__init__`, which supports ``Patch`` ``kwargs``,
-since the artist inspector cannot work until the class is fully defined and
-we can't modify the ``Patch.__init__.__doc__`` docstring outside the class
-definition.  There are some some manual hacks in this case, violating the
-"single entry point" requirement above -- see the ``docstring.interpd.update``
-calls in `matplotlib.patches`.
+The ``%(Line2D:kwdoc)`` syntax makes ``interpd`` lookup an `.Artist` subclass
+named ``Line2D``, and call `.artist.kwdoc` on that class.  `.artist.kwdoc`
+introspects the subclass and summarizes its properties as a substring, which
+gets interpolated into the docstring.
+
+Note that this scheme does not work for decorating an Artist's ``__init__``, as
+the subclass and its properties are not defined yet at that point.  Instead,
+``@docstring.interpd`` can be used to decorate the class itself -- at that
+point, `.kwdoc` can list the properties and interpolate them into
+``__init__.__doc__``.
 
 
 Inheriting docstrings
